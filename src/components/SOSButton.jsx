@@ -1,26 +1,33 @@
-export default function SOSButton({ onSOS }) {
+const SOSButton = ({ onSOS, recording, progress }) => {
   return (
-    <div style={{
-      height: "100vh",
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center"
-    }}>
+    <div className="sos-wrapper">
+      <svg className="progress-ring" width="180" height="180">
+        <circle
+          className="progress-ring-bg"
+          cx="90"
+          cy="90"
+          r="80"
+        />
+        <circle
+          className="progress-ring-fill"
+          cx="90"
+          cy="90"
+          r="80"
+          style={{
+            strokeDashoffset: 502 - (502 * progress) / 100,
+          }}
+        />
+      </svg>
+
       <button
+        className={`sos-button ${recording ? "active" : ""}`}
         onClick={onSOS}
-        style={{
-          backgroundColor: "red",
-          color: "white",
-          width: "180px",
-          height: "180px",
-          borderRadius: "50%",
-          fontSize: "28px",
-          border: "none",
-          cursor: "pointer"
-        }}
+        disabled={recording}
       >
-        🚨 SOS
+        SOS
       </button>
     </div>
   );
-}
+};
+
+export default SOSButton;

@@ -1,38 +1,94 @@
-.App {
-  text-align: center;
+body {
+  margin: 0;
+  background: #0b0f1a;
+  font-family: "Segoe UI", sans-serif;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
+.app {
+  height: 100vh;
   display: flex;
   flex-direction: column;
-  align-items: center;
   justify-content: center;
-  font-size: calc(10px + 2vmin);
+  align-items: center;
+}
+
+/* SOS Button */
+.sos-wrapper {
+  position: relative;
+  width: 180px;
+  height: 180px;
+}
+
+.sos-button {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: none;
+  background: radial-gradient(circle, #ff3b3b, #b00000);
   color: white;
+  font-size: 32px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 0 30px rgba(255, 0, 0, 0.6);
 }
 
-.App-link {
-  color: #61dafb;
+.sos-button.active {
+  animation: pulse 1.2s infinite;
 }
 
-@keyframes App-logo-spin {
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 20px rgba(255, 0, 0, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(255, 0, 0, 1);
+  }
+  100% {
+    box-shadow: 0 0 20px rgba(255, 0, 0, 0.6);
+  }
+}
+
+/* Progress Ring */
+.progress-ring {
+  transform: rotate(-90deg);
+}
+
+.progress-ring-bg {
+  fill: none;
+  stroke: #222;
+  stroke-width: 10;
+}
+
+.progress-ring-fill {
+  fill: none;
+  stroke: #ff3b3b;
+  stroke-width: 10;
+  stroke-dasharray: 502;
+  transition: stroke-dashoffset 1s linear;
+}
+
+/* Popup */
+.popup {
+  margin-top: 30px;
+  background: #111827;
+  color: white;
+  padding: 14px 24px;
+  border-radius: 12px;
+  box-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
   from {
-    transform: rotate(0deg);
+    opacity: 0;
+    transform: translateY(10px);
   }
   to {
-    transform: rotate(360deg);
+    opacity: 1;
+    transform: translateY(0);
   }
 }
