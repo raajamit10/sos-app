@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
 
-import SOSButton from "./components/SOSButton";
+import Login from "./components/Login";
 import UserForm from "./components/UserForm";
-import Dashboard from "./components/Dashboard";
+import SOSButton from "./components/SOSButton";
 
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import {
@@ -16,57 +16,90 @@ import {
 import { storage, db } from "./firebase";
 
 function App() {
-  /* ---------------- ADMIN MODE ---------------- */
-  // 🔴 Set this to true ONLY for receiver/admin
-  const isAdmin = false;
-
-  /* ---------------- USER REGISTRATION ---------------- */
-  const [isRegistered, setIsRegistered] = useState(
-    !!localStorage.getItem("userId")
+  /* ---------------- AUTH ---------------- */
+  const [userId, setUserId] = useState(
+    localStorage.getItem("userId")
   );
+  const [checkingProfile, setCheckingProfile] = useState(true);
+  const [isRegistered, setIsRegistered] = useState(false);
 
   /* ---------------- SOS STATES ---------------- */
   const [recording, setRecording] = useState(false);
   const [progress, setProgress] = useState(0);
   const [message, setMessage] = useState("");
 
-  /* ---------------- ADMIN DASHBOARD ---------------- */
-  if (isAdmin) {
-    return <Dashboard />;
+  /* ---------------- CHECK USER PROFILE ---------------- */
+  useEffect(() => {
+    const checkProfile = async () => {
+      if (!userId) return;
+
+      try {
+        const snap = await getDoc(doc(db, "users", userId));
+        setIsRegistered(snap.exists());
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setCheckingProfile(false);
+      }
+    };
+
+    checkProfile();
+  }, [userId]);
+
+  /* ---------------- LOGIN ---------------- */
+  if (!userId) {
+    return (
+      <Login
+        onLogin={(uid) => {
+          localStorage.setItem("userId", uid);
+          setUserId(uid);
+        }}
+      />
+    );
   }
 
-  /* ---------------- USER FORM ---------------- */
+  /* ---------------- LOADING ---------------- */
+  if (checkingProfile) {
+    return <p style={{ color: "white", textAlign: "center" }}>Loading...</p>;
+  }
+
+  /* ---------------- PROFILE FORM ---------------- */
   if (!isRegistered) {
-    return <UserForm onSuccess={() => setIsRegistered(true)} />;
+    return (
+      <UserForm
+        onSuccess={() => {
+          setIsRegistered(true);
+        }}
+      />
+    );
   }
 
   /* ---------------- LOCATION ---------------- */
-  const getLocation = () => {
-    return new Promise((resolve, reject) => {
+  const getLocation = () =>
+    new Promise((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(
         (pos) =>
           resolve({
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
           }),
-        reject
+        () => reject("Location permission denied")
       );
     });
-  };
 
-  /* ---------------- AUDIO RECORDING ---------------- */
+  /* ---------------- AUDIO RECORD ---------------- */
   const recordAudio = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const mediaRecorder = new MediaRecorder(stream);
+    const recorder = new MediaRecorder(stream);
     let chunks = [];
 
-    mediaRecorder.start();
-    mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+    recorder.start();
+    recorder.ondataavailable = (e) => chunks.push(e.data);
 
-    setTimeout(() => mediaRecorder.stop(), 30000);
+    setTimeout(() => recorder.stop(), 30000);
 
     return new Promise((resolve) => {
-      mediaRecorder.onstop = () => {
+      recorder.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
         resolve(new Blob(chunks, { type: "audio/webm" }));
       };
@@ -74,42 +107,41 @@ function App() {
   };
 
   /* ---------------- AUDIO UPLOAD ---------------- */
-  const uploadAudioToFirebase = async (audioBlob) => {
-    const audioRef = ref(storage, `sos-audio/audio-${Date.now()}.webm`);
-    await uploadBytes(audioRef, audioBlob);
+  const uploadAudio = async (blob) => {
+    const audioRef = ref(storage, `sos-audio/${Date.now()}.webm`);
+    await uploadBytes(audioRef, blob);
     return await getDownloadURL(audioRef);
   };
 
   /* ---------------- SAVE SOS ---------------- */
-  const saveSOStoFirestore = async ({ location, audioURL }) => {
-    const userId = localStorage.getItem("userId");
-    const userDoc = await getDoc(doc(db, "users", userId));
-    const userData = userDoc.data();
+  const saveSOS = async ({ location, audioURL }) => {
+    const snap = await getDoc(doc(db, "users", userId));
+    const user = snap.data();
 
     await addDoc(collection(db, "sos_alerts"), {
-      name: userData.name,
-      phone: userData.phone,
-      address: userData.address,
-      guardianPhone: userData.guardianPhone,
+      name: user.name,
+      phone: user.phone,
+      address: user.address,
+      guardianPhone: user.guardianPhone,
 
       latitude: location.lat,
       longitude: location.lng,
       audioURL,
 
-      createdAt: serverTimestamp(),
       status: "active",
+      createdAt: serverTimestamp(),
     });
   };
 
   /* ---------------- PROGRESS ---------------- */
   const startProgress = () => {
-    let time = 0;
+    let t = 0;
     setProgress(0);
 
-    const interval = setInterval(() => {
-      time++;
-      setProgress((time / 30) * 100);
-      if (time >= 30) clearInterval(interval);
+    const timer = setInterval(() => {
+      t++;
+      setProgress((t / 30) * 100);
+      if (t >= 30) clearInterval(timer);
     }, 1000);
   };
 
@@ -117,27 +149,27 @@ function App() {
   const handleSOS = async () => {
     try {
       setRecording(true);
-      setMessage("🎙️ Recording audio...");
+      setMessage("🚨 Recording SOS...");
       startProgress();
 
       const location = await getLocation();
       const audioBlob = await recordAudio();
-      const audioURL = await uploadAudioToFirebase(audioBlob);
+      const audioURL = await uploadAudio(audioBlob);
 
-      await saveSOStoFirestore({ location, audioURL });
+      await saveSOS({ location, audioURL });
 
-      setMessage("✅ SOS Sent Successfully!");
-      setTimeout(() => setMessage(""), 3000);
+      setMessage("✅ SOS sent successfully!");
     } catch (err) {
       console.error(err);
-      setMessage("❌ SOS Failed");
+      setMessage("❌ SOS failed. Check permissions.");
     } finally {
       setRecording(false);
       setProgress(0);
+      setTimeout(() => setMessage(""), 3000);
     }
   };
 
-  /* ---------------- USER UI ---------------- */
+  /* ---------------- UI ---------------- */
   return (
     <div className="app">
       <SOSButton
