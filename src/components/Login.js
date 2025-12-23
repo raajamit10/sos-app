@@ -4,7 +4,6 @@ import {
   RecaptchaVerifier,
   signInWithPhoneNumber,
 } from "firebase/auth";
-import "./Login.css";
 
 function Login({ onLogin }) {
   const [phone, setPhone] = useState("");
@@ -12,26 +11,22 @@ function Login({ onLogin }) {
   const [confirmation, setConfirmation] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // 🔐 Setup reCAPTCHA
+  // ✅ Correct reCAPTCHA setup (WORKS ON VERCEL)
   const setupRecaptcha = () => {
     if (!window.recaptchaVerifier) {
       window.recaptchaVerifier = new RecaptchaVerifier(
         "recaptcha-container",
         {
-          size: "invisible",
-          callback: () => {
-            console.log("reCAPTCHA solved");
-          },
+          size: "normal", // 👈 IMPORTANT (not invisible)
         },
         auth
       );
     }
   };
 
-  // 📲 Send OTP
   const sendOTP = async () => {
     if (!phone.startsWith("+")) {
-      alert("Use format +91XXXXXXXXXX");
+      alert("Use +91XXXXXXXXXX format");
       return;
     }
 
@@ -39,24 +34,22 @@ function Login({ onLogin }) {
       setLoading(true);
       setupRecaptcha();
 
-      const appVerifier = window.recaptchaVerifier;
-      const result = await signInWithPhoneNumber(
+      const confirmationResult = await signInWithPhoneNumber(
         auth,
         phone,
-        appVerifier
+        window.recaptchaVerifier
       );
 
-      setConfirmation(result);
-      alert("✅ OTP Sent");
-    } catch (err) {
-      console.error(err);
-      alert(err.message || "❌ OTP failed");
+      setConfirmation(confirmationResult);
+      alert("OTP sent");
+    } catch (error) {
+      console.error(error);
+      alert(error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // 🔢 Verify OTP
   const verifyOTP = async () => {
     try {
       setLoading(true);
@@ -64,10 +57,9 @@ function Login({ onLogin }) {
 
       const uid = result.user.uid;
       localStorage.setItem("userId", uid);
-
       onLogin(uid);
-    } catch {
-      alert("❌ Invalid OTP");
+    } catch (error) {
+      alert("Invalid OTP");
     } finally {
       setLoading(false);
     }
@@ -76,7 +68,7 @@ function Login({ onLogin }) {
   return (
     <div className="login-container">
       <div className="login-box">
-        <h2>📱 SOS Login</h2>
+        <h2>Login</h2>
 
         {!confirmation ? (
           <>
@@ -85,8 +77,9 @@ function Login({ onLogin }) {
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
             />
+            <div id="recaptcha-container"></div>
             <button onClick={sendOTP} disabled={loading}>
-              {loading ? "Sending..." : "Send OTP"}
+              Send OTP
             </button>
           </>
         ) : (
@@ -97,13 +90,10 @@ function Login({ onLogin }) {
               onChange={(e) => setOtp(e.target.value)}
             />
             <button onClick={verifyOTP} disabled={loading}>
-              {loading ? "Verifying..." : "Verify OTP"}
+              Verify OTP
             </button>
           </>
         )}
-
-        {/* REQUIRED */}
-        <div id="recaptcha-container"></div>
       </div>
     </div>
   );
