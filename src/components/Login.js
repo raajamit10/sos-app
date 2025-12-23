@@ -11,25 +11,17 @@ function Login({ onLogin }) {
   const [confirmation, setConfirmation] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // ✅ Correct reCAPTCHA setup (WORKS ON VERCEL)
   const setupRecaptcha = () => {
     if (!window.recaptchaVerifier) {
       window.recaptchaVerifier = new RecaptchaVerifier(
         "recaptcha-container",
-        {
-          size: "normal", // 👈 IMPORTANT (not invisible)
-        },
+        { size: "normal" },
         auth
       );
     }
   };
 
   const sendOTP = async () => {
-    if (!phone.startsWith("+")) {
-      alert("Use +91XXXXXXXXXX format");
-      return;
-    }
-
     try {
       setLoading(true);
       setupRecaptcha();
@@ -52,16 +44,11 @@ function Login({ onLogin }) {
 
   const verifyOTP = async () => {
     try {
-      setLoading(true);
       const result = await confirmation.confirm(otp);
-
-      const uid = result.user.uid;
-      localStorage.setItem("userId", uid);
-      onLogin(uid);
-    } catch (error) {
+      localStorage.setItem("userId", result.user.uid);
+      onLogin(result.user.uid);
+    } catch {
       alert("Invalid OTP");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -89,7 +76,7 @@ function Login({ onLogin }) {
               value={otp}
               onChange={(e) => setOtp(e.target.value)}
             />
-            <button onClick={verifyOTP} disabled={loading}>
+            <button onClick={verifyOTP}>
               Verify OTP
             </button>
           </>
