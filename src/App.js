@@ -1,76 +1,107 @@
 import { useState } from "react";
-import SOSButton from "./components/SOSButton";
 import "./App.css";
 
+import SOSButton from "./components/SOSButton";
+import UserForm from "./components/UserForm";
+import Dashboard from "./components/Dashboard";
+
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+  doc,
+  getDoc,
+} from "firebase/firestore";
 import { storage, db } from "./firebase";
 
 function App() {
+  /* ---------------- ADMIN MODE ---------------- */
+  // 🔴 Set this to true ONLY for receiver/admin
+  const isAdmin = false;
+
+  /* ---------------- USER REGISTRATION ---------------- */
+  const [isRegistered, setIsRegistered] = useState(
+    !!localStorage.getItem("userId")
+  );
+
+  /* ---------------- SOS STATES ---------------- */
   const [recording, setRecording] = useState(false);
   const [progress, setProgress] = useState(0);
   const [message, setMessage] = useState("");
 
-  // 📍 Get Location
+  /* ---------------- ADMIN DASHBOARD ---------------- */
+  if (isAdmin) {
+    return <Dashboard />;
+  }
+
+  /* ---------------- USER FORM ---------------- */
+  if (!isRegistered) {
+    return <UserForm onSuccess={() => setIsRegistered(true)} />;
+  }
+
+  /* ---------------- LOCATION ---------------- */
   const getLocation = () => {
     return new Promise((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
+        (pos) =>
           resolve({
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
-          });
-        },
+          }),
         reject
       );
     });
   };
 
-  // 🎙️ Record Audio
+  /* ---------------- AUDIO RECORDING ---------------- */
   const recordAudio = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const mediaRecorder = new MediaRecorder(stream);
     let chunks = [];
 
     mediaRecorder.start();
-
     mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
 
-    setTimeout(() => {
-      mediaRecorder.stop();
-    }, 30000);
+    setTimeout(() => mediaRecorder.stop(), 30000);
 
     return new Promise((resolve) => {
       mediaRecorder.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
-        const audioBlob = new Blob(chunks, { type: "audio/webm" });
-        resolve(audioBlob);
+        resolve(new Blob(chunks, { type: "audio/webm" }));
       };
     });
   };
 
-  // ☁️ Upload Audio
+  /* ---------------- AUDIO UPLOAD ---------------- */
   const uploadAudioToFirebase = async (audioBlob) => {
-    const audioRef = ref(
-      storage,
-      `sos-audio/audio-${Date.now()}.webm`
-    );
+    const audioRef = ref(storage, `sos-audio/audio-${Date.now()}.webm`);
     await uploadBytes(audioRef, audioBlob);
     return await getDownloadURL(audioRef);
   };
 
-  // 🧾 Save to Firestore
+  /* ---------------- SAVE SOS ---------------- */
   const saveSOStoFirestore = async ({ location, audioURL }) => {
+    const userId = localStorage.getItem("userId");
+    const userDoc = await getDoc(doc(db, "users", userId));
+    const userData = userDoc.data();
+
     await addDoc(collection(db, "sos_alerts"), {
+      name: userData.name,
+      phone: userData.phone,
+      address: userData.address,
+      guardianPhone: userData.guardianPhone,
+
       latitude: location.lat,
       longitude: location.lng,
       audioURL,
+
       createdAt: serverTimestamp(),
       status: "active",
     });
   };
 
-  // ⏳ Progress Ring
+  /* ---------------- PROGRESS ---------------- */
   const startProgress = () => {
     let time = 0;
     setProgress(0);
@@ -82,7 +113,7 @@ function App() {
     }, 1000);
   };
 
-  // 🚨 SOS Handler
+  /* ---------------- SOS HANDLER ---------------- */
   const handleSOS = async () => {
     try {
       setRecording(true);
@@ -106,6 +137,7 @@ function App() {
     }
   };
 
+  /* ---------------- USER UI ---------------- */
   return (
     <div className="app">
       <SOSButton
