@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import "./App.css";
 
 import Login from "./components/Login";
@@ -13,14 +13,12 @@ import {
   doc,
   getDoc,
 } from "firebase/firestore";
+
 import { storage, db } from "./firebase";
 
 function App() {
   /* ---------------- AUTH ---------------- */
-  const [userId, setUserId] = useState(
-    localStorage.getItem("userId")
-  );
-  const [checkingProfile, setCheckingProfile] = useState(true);
+  const userId = localStorage.getItem("userId"); // phone number
   const [isRegistered, setIsRegistered] = useState(false);
 
   /* ---------------- SOS STATES ---------------- */
@@ -28,50 +26,14 @@ function App() {
   const [progress, setProgress] = useState(0);
   const [message, setMessage] = useState("");
 
-  /* ---------------- CHECK USER PROFILE ---------------- */
-  useEffect(() => {
-    const checkProfile = async () => {
-      if (!userId) return;
-
-      try {
-        const snap = await getDoc(doc(db, "users", userId));
-        setIsRegistered(snap.exists());
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setCheckingProfile(false);
-      }
-    };
-
-    checkProfile();
-  }, [userId]);
-
   /* ---------------- LOGIN ---------------- */
   if (!userId) {
-    return (
-      <Login
-        onLogin={(uid) => {
-          localStorage.setItem("userId", uid);
-          setUserId(uid);
-        }}
-      />
-    );
-  }
-
-  /* ---------------- LOADING ---------------- */
-  if (checkingProfile) {
-    return <p style={{ color: "white", textAlign: "center" }}>Loading...</p>;
+    return <Login />;
   }
 
   /* ---------------- PROFILE FORM ---------------- */
   if (!isRegistered) {
-    return (
-      <UserForm
-        onSuccess={() => {
-          setIsRegistered(true);
-        }}
-      />
-    );
+    return <UserForm onSuccess={() => setIsRegistered(true)} />;
   }
 
   /* ---------------- LOCATION ---------------- */
@@ -115,15 +77,22 @@ function App() {
 
   /* ---------------- SAVE SOS ---------------- */
   const saveSOS = async ({ location, audioURL }) => {
-    const snap = await getDoc(doc(db, "users", userId));
-    const user = snap.data();
+    const userSnap = await getDoc(doc(db, "users", userId));
+
+    if (!userSnap.exists()) {
+      throw new Error("User profile not found");
+    }
+
+    const user = userSnap.data();
 
     await addDoc(collection(db, "sos_alerts"), {
+      // user info
       name: user.name,
       phone: user.phone,
       address: user.address,
       guardianPhone: user.guardianPhone,
 
+      // sos info
       latitude: location.lat,
       longitude: location.lng,
       audioURL,
@@ -133,7 +102,7 @@ function App() {
     });
   };
 
-  /* ---------------- PROGRESS ---------------- */
+  /* ---------------- PROGRESS BAR ---------------- */
   const startProgress = () => {
     let t = 0;
     setProgress(0);
@@ -177,6 +146,7 @@ function App() {
         recording={recording}
         progress={progress}
       />
+
       {message && <div className="popup">{message}</div>}
     </div>
   );

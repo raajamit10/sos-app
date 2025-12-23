@@ -14,9 +14,9 @@ function Login({ onLogin }) {
   const setupRecaptcha = () => {
     if (!window.recaptchaVerifier) {
       window.recaptchaVerifier = new RecaptchaVerifier(
-        "recaptcha-container",
-        { size: "normal" },
-        auth
+        auth,
+        "recaptcha",
+        { size: "invisible" }
       );
     }
   };
@@ -25,18 +25,16 @@ function Login({ onLogin }) {
     try {
       setLoading(true);
       setupRecaptcha();
-
-      const confirmationResult = await signInWithPhoneNumber(
+      const result = await signInWithPhoneNumber(
         auth,
         phone,
         window.recaptchaVerifier
       );
-
-      setConfirmation(confirmationResult);
+      setConfirmation(result);
       alert("OTP sent");
-    } catch (error) {
-      console.error(error);
-      alert(error.message);
+    } catch (err) {
+      alert("Failed to send OTP");
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -44,44 +42,47 @@ function Login({ onLogin }) {
 
   const verifyOTP = async () => {
     try {
+      setLoading(true);
       const result = await confirmation.confirm(otp);
-      localStorage.setItem("userId", result.user.uid);
-      onLogin(result.user.uid);
+      const userId = result.user.phoneNumber;
+      localStorage.setItem("userId", userId);
+      onLogin(userId);
     } catch {
       alert("Invalid OTP");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="login-container">
-      <div className="login-box">
-        <h2>Login</h2>
+    <div className="login">
+      <h2>Login with Phone</h2>
 
-        {!confirmation ? (
-          <>
-            <input
-              placeholder="+91XXXXXXXXXX"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-            />
-            <div id="recaptcha-container"></div>
-            <button onClick={sendOTP} disabled={loading}>
-              Send OTP
-            </button>
-          </>
-        ) : (
-          <>
-            <input
-              placeholder="Enter OTP"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-            />
-            <button onClick={verifyOTP}>
-              Verify OTP
-            </button>
-          </>
-        )}
-      </div>
+      {!confirmation ? (
+        <>
+          <input
+            placeholder="+91XXXXXXXXXX"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+          />
+          <button onClick={sendOTP} disabled={loading}>
+            Send OTP
+          </button>
+        </>
+      ) : (
+        <>
+          <input
+            placeholder="Enter OTP"
+            value={otp}
+            onChange={(e) => setOtp(e.target.value)}
+          />
+          <button onClick={verifyOTP} disabled={loading}>
+            Verify OTP
+          </button>
+        </>
+      )}
+
+      <div id="recaptcha"></div>
     </div>
   );
 }
