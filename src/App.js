@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "./App.css";
 
 import Login from "./components/Login";
@@ -18,17 +18,35 @@ import { storage, db } from "./firebase";
 
 function App() {
   /* ---------------- AUTH ---------------- */
-  const userId = localStorage.getItem("userId"); // phone number
+  const userId = localStorage.getItem("uid"); // ✅ Google UID
   const [isRegistered, setIsRegistered] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   /* ---------------- SOS STATES ---------------- */
   const [recording, setRecording] = useState(false);
   const [progress, setProgress] = useState(0);
   const [message, setMessage] = useState("");
 
+  /* ---------------- CHECK PROFILE ---------------- */
+  useEffect(() => {
+    const checkProfile = async () => {
+      if (!userId) return;
+
+      const snap = await getDoc(doc(db, "users", userId));
+      setIsRegistered(snap.exists());
+      setLoading(false);
+    };
+
+    checkProfile();
+  }, [userId]);
+
   /* ---------------- LOGIN ---------------- */
   if (!userId) {
     return <Login />;
+  }
+
+  if (loading) {
+    return <div className="loader">Loading...</div>;
   }
 
   /* ---------------- PROFILE FORM ---------------- */
@@ -70,7 +88,7 @@ function App() {
 
   /* ---------------- AUDIO UPLOAD ---------------- */
   const uploadAudio = async (blob) => {
-    const audioRef = ref(storage, `sos-audio/${Date.now()}.webm`);
+    const audioRef = ref(storage, `sos-audio/${userId}-${Date.now()}.webm`);
     await uploadBytes(audioRef, blob);
     return await getDownloadURL(audioRef);
   };
@@ -86,8 +104,11 @@ function App() {
     const user = userSnap.data();
 
     await addDoc(collection(db, "sos_alerts"), {
+      uid: userId,
+
       // user info
       name: user.name,
+      email: user.email,
       phone: user.phone,
       address: user.address,
       guardianPhone: user.guardianPhone,
